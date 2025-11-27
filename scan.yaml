@@ -1,7 +1,0 @@
-apiVersion: scan.ahmali3.github.io/v1alpha1
-kind: ClusterScan
-metadata:
-  name: my-security-scan
-spec:
-  image: busybox
-  command: ["sh", "-c", "echo 'Running Virus Scan... Done!'"]
