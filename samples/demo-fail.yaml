@@ -1,0 +1,7 @@
+apiVersion: scan.ahmali3.github.io/v1alpha1
+kind: ClusterScan
+metadata:
+  name: demo-bad-schedule
+spec:
+  image: busybox
+  schedule: "banana" # Invalid Cron -> Webhook should block this

@@ -1,0 +1,40 @@
+# Binaries and Build Artifacts
+/bin/
+/testbin/
+/manager
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+Dockerfile.cross
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+cover.out
+
+# Go workspace file
+go.work
+
+# Dependencies
+# We ignore the vendor folder because we rely on go.mod/go.sum
+# This keeps the repo lightweight and avoids "inconsistent vendoring" errors
+vendor/
+
+# Editor and IDE paraphernalia
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS System Files
+.DS_Store
+Thumbs.db
+
+# Kubeconfig might contain secrets
+*.kubeconfig
+main
