@@ -22,6 +22,15 @@ import (
 	scanv1alpha1 "github.com/ahmali3/clusterscan-operator/api/v1alpha1"
 )
 
+const (
+	PhaseScheduled = "Scheduled"
+	PhasePending   = "Pending"
+	PhaseRunning   = "Running"
+	PhaseCompleted = "Completed"
+	PhaseFailed    = "Failed"
+	PhaseSuspended = "Suspended"
+)
+
 type ClusterScanReconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
@@ -51,7 +60,7 @@ func (r *ClusterScanReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return r.reconcileJob(ctx, &clusterScan, logger)
 }
 
-func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *scanv1alpha1.ClusterScan, log interface{}) (ctrl.Result, error) {
+func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *scanv1alpha1.ClusterScan, logger interface{}) (ctrl.Result, error) {
 	jobName := clusterScan.Name + "-job"
 	job := &batchv1.Job{}
 	err := r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: clusterScan.Namespace}, job)
@@ -67,7 +76,7 @@ func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *s
 		r.Recorder.Event(clusterScan, corev1.EventTypeNormal, "JobCreated", "One-off scan job created")
 
 		clusterScan.Status.LastJobName = jobName
-		clusterScan.Status.Phase = "Running"
+		clusterScan.Status.Phase = PhaseRunning
 		if err := r.Status().Update(ctx, clusterScan); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -78,7 +87,7 @@ func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *s
 		condition := metav1.Condition{
 			Type: "Ready", Status: metav1.ConditionFalse, Reason: "Running", Message: "Scan is in progress",
 		}
-		clusterScan.Status.Phase = "Running"
+		clusterScan.Status.Phase = PhaseRunning
 
 		if job.Status.Succeeded > 0 {
 			// Store scan results in ConfigMap
@@ -90,12 +99,12 @@ func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *s
 				Type: "Ready", Status: metav1.ConditionTrue, Reason: "Completed", Message: "Scan completed successfully",
 			}
 			clusterScan.Status.LastRunTime = job.Status.CompletionTime
-			clusterScan.Status.Phase = "Completed"
+			clusterScan.Status.Phase = PhaseCompleted
 		} else if job.Status.Failed > 0 {
 			condition = metav1.Condition{
 				Type: "Ready", Status: metav1.ConditionFalse, Reason: "Failed", Message: "Scan job failed",
 			}
-			clusterScan.Status.Phase = "Failed"
+			clusterScan.Status.Phase = PhaseFailed
 		}
 
 		if clusterScan.Status.LastJobName != jobName {
@@ -146,7 +155,7 @@ func (r *ClusterScanReconciler) reconcileCronJob(ctx context.Context, clusterSca
 		}
 		r.Recorder.Eventf(clusterScan, corev1.EventTypeNormal, "Scheduled", "CronJob created: %s", clusterScan.Spec.Schedule)
 
-		clusterScan.Status.Phase = "Scheduled"
+		clusterScan.Status.Phase = PhaseScheduled
 		if err := r.Status().Update(ctx, clusterScan); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -165,9 +174,9 @@ func (r *ClusterScanReconciler) reconcileCronJob(ctx context.Context, clusterSca
 			r.Recorder.Event(clusterScan, corev1.EventTypeNormal, "Updated", "CronJob configuration updated")
 		}
 
-		clusterScan.Status.Phase = "Scheduled"
+		clusterScan.Status.Phase = PhaseScheduled
 		if *cronJob.Spec.Suspend {
-			clusterScan.Status.Phase = "Suspended"
+			clusterScan.Status.Phase = PhaseSuspended
 		}
 
 		if cronJob.Status.LastScheduleTime != nil {
@@ -177,7 +186,7 @@ func (r *ClusterScanReconciler) reconcileCronJob(ctx context.Context, clusterSca
 					return ctrl.Result{}, err
 				}
 			}
-		} else if clusterScan.Status.Phase != "Scheduled" && !clusterScan.Spec.Suspend {
+		} else if clusterScan.Status.Phase != PhaseScheduled && !clusterScan.Spec.Suspend {
 			if err := r.Status().Update(ctx, clusterScan); err != nil {
 				return ctrl.Result{}, err
 			}
