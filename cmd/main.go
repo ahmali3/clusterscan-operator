@@ -5,13 +5,11 @@ import (
 	"flag"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -122,14 +120,6 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	// If the certificate is not specified, controller-runtime will automatically
-	// generate self-signed certificates for the metrics server. While convenient for development and testing,
-	// this setup is not recommended for production.
-	//
-	// TODO(user): If you enable certManager, uncomment the following lines:
-	// - [METRICS-WITH-CERTS] at config/default/kustomization.yaml to generate and use certificates
-	// managed by cert-manager for the metrics server.
-	// - [PROMETHEUS-WITH-CERTS] at config/prometheus/kustomization.yaml for TLS certification.
 	if len(metricsCertPath) > 0 {
 		setupLog.Info("Initializing metrics certificate watcher using provided certificates",
 			"metrics-cert-path", metricsCertPath, "metrics-cert-name", metricsCertName, "metrics-cert-key", metricsCertKey)
@@ -146,32 +136,30 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "cd9c63aa.ahmali3.github.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
+	// 1. Create the Clientset from the Manager's config
+	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create kubernetes client")
+		os.Exit(1)
+	}
+
+	// 2. Pass it to the Reconciler
 	if err := (&controller.ClusterScanReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("clusterscan-controller"), // Pass the recorder here
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Recorder:   mgr.GetEventRecorderFor("clusterscan-controller"),
+		KubeClient: kubeClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterScan")
 		os.Exit(1)
 	}
-	// nolint:goconst
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := (&webhookv1alpha1.ClusterScanWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterScan")

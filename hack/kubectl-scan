@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# kubectl-scan - Helper plugin for ClusterScan operator
+# Usage: kubectl scan <command> [args]
+
+set -eo pipefail
+
+NAMESPACE="${KUBECTL_PLUGINS_CURRENT_NAMESPACE:-default}"
+
+show_help() {
+    cat << EOF
+kubectl-scan - ClusterScan operator helper plugin
+
+USAGE:
+    kubectl scan <command> [options]
+
+COMMANDS:
+    list                    List all ClusterScans
+    results <name>          View scan results for a specific scan
+    status <name>           Show detailed status for a scan
+    help                    Show this help message
+
+EXAMPLES:
+    # List all scans
+    kubectl scan list
+
+    # View results for a specific scan
+    kubectl scan results my-scan
+
+    # Check scan status
+    kubectl scan status my-scan
+
+EOF
+}
+
+cmd_list() {
+    kubectl get clusterscans -n "$NAMESPACE"
+}
+
+cmd_results() {
+    local scan_name="$1"
+    
+    if [[ -z "$scan_name" ]]; then
+        echo "Error: scan name required"
+        echo "Usage: kubectl scan results <scan-name>"
+        exit 1
+    fi
+
+    # Get ConfigMap name from ClusterScan status
+    local cm_name
+    cm_name=$(kubectl get clusterscan "$scan_name" -n "$NAMESPACE" \
+        -o jsonpath='{.status.resultsConfigMap}' 2>/dev/null)
+    
+    if [[ -z "$cm_name" ]]; then
+        echo "Error: No results found for scan '$scan_name'"
+        echo ""
+        echo "Possible reasons:"
+        echo "  - Scan hasn't completed yet (check: kubectl scan status $scan_name)"
+        echo "  - Scan failed before producing results"
+        echo "  - Results haven't been stored yet"
+        exit 1
+    fi
+
+    # Display results
+    echo "=== Scan Results for '$scan_name' ==="
+    echo ""
+    kubectl get configmap "$cm_name" -n "$NAMESPACE" \
+        -o jsonpath='{.data.scan-output\.txt}' 2>/dev/null
+}
+
+cmd_status() {
+    local scan_name="$1"
+    
+    if [[ -z "$scan_name" ]]; then
+        echo "Error: scan name required"
+        echo "Usage: kubectl scan status <scan-name>"
+        exit 1
+    fi
+
+    kubectl describe clusterscan "$scan_name" -n "$NAMESPACE"
+}
+
+# Main command routing
+case "${1:-}" in
+    list)
+        cmd_list
+        ;;
+    results)
+        cmd_results "${2:-}"
+        ;;
+    status)
+        cmd_status "${2:-}"
+        ;;
+    help|--help|-h|"")
+        show_help
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

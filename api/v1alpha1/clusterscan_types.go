@@ -7,11 +7,15 @@ import (
 // ClusterScanSpec defines the desired state of ClusterScan
 type ClusterScanSpec struct {
 	// +kubebuilder:validation:Required
-	// Image is the container image to run (e.g., aquasec/trivy)
+	// Image is the scanner container image to run (e.g., aquasec/trivy:latest, aquasec/kube-bench:latest)
 	Image string `json:"image"`
 
 	// +kubebuilder:validation:Optional
-	// Command allows overriding the entrypoint
+	// Target is what to scan (e.g., nginx:1.19, python:3.4-alpine). Used for image scanning tools like Trivy.
+	Target string `json:"target,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Command allows overriding the entrypoint. If empty and Target is specified, defaults to Trivy image scan.
 	Command []string `json:"command,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -37,11 +41,22 @@ type ClusterScanStatus struct {
 	// Phase represents the high-level status of the scan (e.g., Pending, Running, Done, Scheduled)
 	// +kubebuilder:default="Pending"
 	Phase string `json:"phase,omitempty"`
+
+	// ResultsConfigMap points to the ConfigMap containing full scan results
+	// +optional
+	ResultsConfigMap string `json:"resultsConfigMap,omitempty"`
+
+	// ScanExitCode stores the scanner's exit code (0 = success, non-zero = issues found)
+	// +optional
+	ScanExitCode *int32 `json:"scanExitCode,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`
+// +kubebuilder:printcolumn:name="Results",type=string,JSONPath=`.status.resultsConfigMap`
+// +kubebuilder:printcolumn:name="Exit Code",type=integer,JSONPath=`.status.scanExitCode`
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=`.spec.schedule`
 // +kubebuilder:printcolumn:name="Last Run",type=date,JSONPath=`.status.lastRunTime`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`

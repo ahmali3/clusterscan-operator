@@ -18,6 +18,15 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
+    - jsonPath: .spec.target
+      name: Target
+      type: string
+    - jsonPath: .status.resultsConfigMap
+      name: Results
+      type: string
+    - jsonPath: .status.scanExitCode
+      name: Exit Code
+      type: integer
     - jsonPath: .spec.schedule
       name: Schedule
       type: string
@@ -53,12 +62,14 @@ spec:
             description: ClusterScanSpec defines the desired state of ClusterScan
             properties:
               command:
-                description: Command allows overriding the entrypoint
+                description: Command allows overriding the entrypoint. If empty and
+                  Target is specified, defaults to Trivy image scan.
                 items:
                   type: string
                 type: array
               image:
-                description: Image is the container image to run (e.g., aquasec/trivy)
+                description: Image is the scanner container image to run (e.g., aquasec/trivy:latest,
+                  aquasec/kube-bench:latest)
                 type: string
               schedule:
                 description: Schedule is a Cron formatted string. If omitted, the
@@ -68,6 +79,10 @@ spec:
                 default: false
                 description: Suspend allows pausing the schedule
                 type: boolean
+              target:
+                description: Target is what to scan (e.g., nginx:1.19, python:3.4-alpine).
+                  Used for image scanning tools like Trivy.
+                type: string
             required:
             - image
             type: object
@@ -144,6 +159,15 @@ spec:
                 description: Phase represents the high-level status of the scan (e.g.,
                   Pending, Running, Done, Scheduled)
                 type: string
+              resultsConfigMap:
+                description: ResultsConfigMap points to the ConfigMap containing full
+                  scan results
+                type: string
+              scanExitCode:
+                description: ScanExitCode stores the scanner's exit code (0 = success,
+                  non-zero = issues found)
+                format: int32
+                type: integer
             type: object
         type: object
     served: true

@@ -1,7 +1,0 @@
-apiVersion: scan.ahmali3.github.io/v1alpha1
-kind: ClusterScan
-metadata:
-  name: demo-auto-fix
-spec:
-  image: nginx:1.19
-  # Command is missing -> Webhook should auto-fill it

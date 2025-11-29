@@ -47,7 +47,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object paths="./..."
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -248,3 +248,43 @@ endef
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
 endef
+
+##@ Demo & Cleanup
+
+.PHONY: setup
+setup: ## Full automated setup (cluster + operator)
+	@./scripts/setup.sh -y
+
+.PHONY: demo
+demo: ## Run interactive demo
+	@./scripts/demo.sh
+
+.PHONY: cleanup
+cleanup: ## Clean up all resources
+	@./scripts/cleanup.sh -y
+
+
+##@ Results Export
+
+.PHONY: export-results
+export-results: ## Export scan results to file (Usage: make export-results SCAN=<name> [DIR=./scan-results])
+	@if [ -z "$(SCAN)" ]; then \
+		echo "ERROR: SCAN parameter required"; \
+		echo "Usage: make export-results SCAN=scan-name [DIR=directory]"; \
+		echo "Example: make export-results SCAN=my-trivy-scan"; \
+		exit 1; \
+	fi
+	@./scripts/export-scan-results.sh "$(SCAN)" "$(DIR)"
+
+.PHONY: export-all-results
+export-all-results: ## Export all scan results (Usage: make export-all-results [DIR=./scan-results])
+	@echo "Exporting all scan results..."
+	@kubectl get clusterscans -o name 2>/dev/null | while read res; do \
+		name=$$(basename $$res); \
+		./scripts/export-scan-results.sh "$$name" "$(DIR)" || true; \
+	done
+	@echo "Export complete: $(DIR)"
+
+.PHONY: show-scans
+show-scans: ## Display all ClusterScan resources
+	@kubectl get clusterscans -o wide

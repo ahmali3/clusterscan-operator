@@ -1,0 +1,7 @@
+apiVersion: scan.ahmali3.github.io/v1alpha1
+kind: ClusterScan
+metadata:
+  name: default-mutation-test
+spec:
+  # No image specified - webhook should add default aquasec/trivy:latest
+  target: nginx:latest

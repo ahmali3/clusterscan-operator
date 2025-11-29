@@ -1,111 +1,89 @@
 # 🛡️ ClusterScan Operator
 
-A Kubernetes operator for scheduling security scans with first-class CronJob support.
+A Kubernetes operator for automated security scanning with support for one-time and scheduled scans.
 
 [![Go](https://img.shields.io/badge/Go-1.24-blue.svg)](https://golang.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.28+-326CE5.svg)](https://kubernetes.io)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
 ---
 
-## Features
+## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| **One-off & Scheduled Execution** | Creates Jobs for immediate scans or CronJobs for recurring schedules |
-| **Webhook Validation** | Rejects invalid cron syntax at admission time |
-| **Smart Defaults** | Auto-fills Trivy commands when only image is specified |
-| **Status Tracking** | Kubernetes-native Phase, Conditions, and LastRunTime |
-| **Automatic Cleanup** | Owner references ensure Jobs/CronJobs are garbage collected |
-
-## Architecture
-
-```
-┌─────────────────┐
-│  ClusterScan CR │
-└────────┬────────┘
-         │
-         ▼
-   ┌─────────────┐
-   │  Webhooks   │ ◄── Validate cron, mutate defaults
-   └──────┬──────┘
-          │
-          ▼
-   ┌──────────────┐
-   │  Controller  │
-   └──────┬───────┘
-          │
-    ┌─────┴─────┐
-    ▼           ▼
-┌──────┐   ┌─────────┐
-│ Job  │   │ CronJob │
-└──────┘   └─────────┘
-```
-
-**How it works:**
-- **No schedule specified** → Controller creates a Job (one-off execution)
-- **Schedule specified** → Controller creates a CronJob (recurring execution)
-- **Webhooks** → Mutate defaults and validate before creation
+- **One-time & Scheduled Scans** - Run scans immediately or on a cron schedule
+- **Multiple Scanners** - Trivy, Kube-bench, Grype, and custom scanners
+- **Webhook Validation** - Automatic validation of configurations
+- **Smart Defaults** - Auto-fills scanner commands for common tools
+- **Result Export** - Save scan results locally with timestamps
+- **Suspend/Resume** - Dynamic control over scheduled scans
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Setup Cluster & Cert-Manager
+### Prerequisites
+
+- [Kind](https://kind.sigs.k8s.io/) or any Kubernetes cluster
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Docker](https://www.docker.com/)
+- [Go 1.24+](https://golang.org/)
+
+### Automated Setup (Recommended)
+
+```bash
+git clone https://github.com/ahmali3/clusterscan-operator.git
+cd clusterscan-operator
+
+# Setup cluster, cert-manager, and operator
+make setup
+
+# Run interactive demo
+make demo
+```
+
+### Manual Setup
 
 ```bash
 # Create cluster
-kind create cluster --name demo
+kind create cluster --name clusterscan
 
-# Install cert-manager (required for webhook TLS)
+# Install cert-manager
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml
-kubectl wait --for=condition=Ready pods --all -n cert-manager --timeout=180s
-```
+kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
+kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
 
-### 2. Deploy Operator
-
-```bash
 # Install CRDs
 make install
 
 # Build and load image
-make docker-build IMG=clusterscan:v1
-kind load docker-image clusterscan:v1 --name demo
+make docker-build IMG=controller:latest
+kind load docker-image controller:latest --name clusterscan
 
-# Deploy
-make deploy IMG=clusterscan:v1
+# Deploy operator
+make deploy IMG=controller:latest
 
-# Verify
-kubectl get pods -n clusterscan-operator-system
-```
-
-### 3. Run Your First Scan
-
-```bash
-kubectl apply -f samples/demo-default.yaml
-kubectl get clusterscans
-kubectl describe clusterscan demo-default
+# Wait for operator
+kubectl wait --for=condition=available --timeout=120s \
+  deployment/clusterscan-operator-controller-manager -n clusterscan-operator-system
 ```
 
 ---
 
-## Examples
+## 📖 Usage
 
-### One-off Scan
+### Simple Scan
 
 ```yaml
 apiVersion: scan.ahmali3.github.io/v1alpha1
 kind: ClusterScan
 metadata:
-  name: quick-scan
+  name: nginx-scan
 spec:
-  image: aquasec/trivy:latest
-  command: ["trivy", "image", "nginx:latest"]
+  target: nginx:latest
 ```
 
 ```bash
-kubectl apply -f quick-scan.yaml
-kubectl logs job/quick-scan-job
+kubectl apply -f nginx-scan.yaml
+kubectl get clusterscans -w
 ```
 
 ### Scheduled Scan
@@ -114,109 +92,140 @@ kubectl logs job/quick-scan-job
 apiVersion: scan.ahmali3.github.io/v1alpha1
 kind: ClusterScan
 metadata:
-  name: nightly-audit
+  name: nightly-scan
 spec:
-  image: aquasec/trivy:latest
-  schedule: "0 2 * * *"  # 2 AM daily
-  # command auto-filled by mutating webhook
+  target: python:3.9
+  schedule: "0 2 * * *"
 ```
 
-```bash
-kubectl apply -f nightly-audit.yaml
-kubectl get cronjobs
-```
-
-### Suspend Scheduling
+### Custom Scanner
 
 ```yaml
+apiVersion: scan.ahmali3.github.io/v1alpha1
+kind: ClusterScan
+metadata:
+  name: kube-bench
 spec:
-  schedule: "0 2 * * *"
-  suspend: true  # Temporarily pause
+  image: aquasec/kube-bench:latest
+  command: ["kube-bench", "run", "--targets", "master,node"]
+```
+
+### Suspend Schedule
+
+```bash
+kubectl patch clusterscan nightly-scan --type=merge -p '{"spec":{"suspend":true}}'
 ```
 
 ---
 
-## Live Demos
+## 🎬 Interactive Demo
 
-All samples available in [`samples/`](samples/) directory.
-
-**Demo 1: Webhook Mutation** (Auto-fills Trivy command)
 ```bash
-kubectl apply -f samples/demo-default.yaml
-kubectl get clusterscan demo-default -o yaml
-# Shows: command: ["trivy", "image", "nginx:1.19"]
-```
+# Run demo with menu
+make demo
 
-**Demo 2: Webhook Validation** (Rejects bad cron syntax)
-```bash
-kubectl apply -f samples/demo-fail.yaml
-# Error: admission webhook denied the request: Invalid cron schedule
-```
-
-**Demo 3: Production Scans** (Nightly Trivy + Weekly kube-bench)
-```bash
-kubectl apply -f samples/real-world-scans.yaml
-kubectl get clusterscans
+# Or apply samples manually
+kubectl apply -f samples/00-simple-scan.yaml
+kubectl apply -f samples/03-scheduled.yaml
+kubectl apply -f samples/04-vulnerability-scan.yaml
 ```
 
 ---
 
-## Observability
+## 📊 View Results
+
+### Check Status
 
 ```bash
-# View status
+# List all scans
+make show-scans
+
+# Or use kubectl
 kubectl get clusterscans
 kubectl describe clusterscan <name>
-
-# Check logs
-kubectl logs job/<name>-job
-
-# Watch events
-kubectl get events -w
 ```
 
-**Status fields:**
-```yaml
-status:
-  phase: Completed  # Pending, Running, Completed, Scheduled, Failed
-  lastRunTime: "2024-11-26T20:15:30Z"
-  lastJobName: "demo-default-job"
-  conditions:
-    - type: Ready
-      status: "True"
-      reason: Completed
+### Export Results
+
+```bash
+# Using scripts
+make export-results SCAN=nginx-scan
+make export-all-results
+
+# Or manually
+kubectl get configmap <scan-name>-results -o jsonpath='{.data.output}' > result.txt
+```
+
+Results are saved to `scan-results/` directory.
+
+---
+
+## 🧹 Cleanup
+
+```bash
+# Automated cleanup
+make cleanup
+
+# Manual cleanup
+kubectl delete clusterscans --all
+kubectl delete cronjobs --all
+kubectl delete jobs --all
+make undeploy
+make uninstall
+kind delete cluster --name clusterscan
 ```
 
 ---
 
-## Development
+## 🛠️ Development
 
 ```bash
-# Run operator locally
-make install
-make run
-
 # Run tests
 make test
 
-# Update dependencies
-go mod tidy
+# Run controller locally
+make install
+make run
+
+# View logs
+kubectl logs -n clusterscan-operator-system deployment/clusterscan-operator-controller-manager
 ```
 
 ---
 
-## Project Structure
+## 📋 API Reference
 
-```
-clusterscan-operator/
-├── api/v1alpha1/              # CRD definitions
-├── internal/
-│   ├── controller/            # Reconciliation logic
-│   └── webhook/v1alpha1/      # Admission webhooks
-├── samples/                   # Demo manifests
-├── config/                    # Kustomize configs
-└── Dockerfile                 # Multi-stage build
-```
+### ClusterScan Spec
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `image` | string | Scanner image (default: `aquasec/trivy:latest`) |
+| `target` | string | Image to scan (required if no command) |
+| `command` | []string | Custom command (overrides default) |
+| `schedule` | string | Cron schedule (omit for one-time) |
+| `suspend` | bool | Pause scheduled scans |
+
+### ClusterScan Status
+
+| Field | Description |
+|-------|-------------|
+| `phase` | Pending, Running, Completed, or Failed |
+| `lastRunTime` | Last execution timestamp |
+| `resultsConfigMap` | Name of ConfigMap with results |
+| `exitCode` | Exit code of last run |
+
+---
+
+## 🎯 Common Commands
+
+| Command | Description |
+|---------|-------------|
+| `make setup` | Full automated setup |
+| `make demo` | Interactive demo |
+| `make cleanup` | Remove all resources |
+| `make test` | Run tests |
+| `make show-scans` | List all scans |
+| `make export-results SCAN=<name>` | Export results |
 
 ---
 

@@ -1,40 +1,59 @@
-# Binaries and Build Artifacts
-/bin/
-/testbin/
-/manager
+# Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+bin/*
+!bin/.gitkeep
 Dockerfile.cross
 
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool
+# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-cover.out
 
-# Go workspace file
-go.work
+# Kubernetes Generated files - skip generated CRD yamls.
+config/crd/bases
+
+# editor and IDE paraphernalia
+.idea
+.vscode
+*.swp
+*.swo
+*~
 
 # Dependencies
 # We ignore the vendor folder because we rely on go.mod/go.sum
 # This keeps the repo lightweight and avoids "inconsistent vendoring" errors
 vendor/
 
-# Editor and IDE paraphernalia
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+# Go workspace file
+go.work
+go.work.sum
 
-# OS System Files
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+
+# Scan results - ignore exported result files but keep README
+scan-results/*.txt
+scan-results/result_*
+
+# macOS
 .DS_Store
-Thumbs.db
 
-# Kubeconfig might contain secrets
-*.kubeconfig
-main
+# Test coverage
+cover.out
+coverage.html
+
+# Build artifacts
+dist/
+
+# Local development
+local/

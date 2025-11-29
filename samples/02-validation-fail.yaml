@@ -1,0 +1,8 @@
+apiVersion: scan.ahmali3.github.io/v1alpha1
+kind: ClusterScan
+metadata:
+  name: demo-fail
+spec:
+  image: aquasec/trivy:latest
+  target: nginx:latest
+  schedule: "0 0 *"  # Invalid: only 3 fields
