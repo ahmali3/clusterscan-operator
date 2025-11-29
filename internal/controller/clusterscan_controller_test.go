@@ -79,7 +79,7 @@ var _ = Describe("ClusterScan Controller", Ordered, func() {
 				return scan.Status.Phase
 			}, time.Second*10, time.Millisecond*250).Should(Equal("Running"))
 
-			k8sClient.Delete(ctx, scan)
+			Expect(k8sClient.Delete(ctx, scan)).To(Succeed())
 		})
 
 		It("should create and update a CronJob", func() {
@@ -120,7 +120,7 @@ var _ = Describe("ClusterScan Controller", Ordered, func() {
 				return createdCron.Spec.Schedule
 			}, time.Second*10, time.Millisecond*250).Should(Equal("0 0 * * *"))
 
-			k8sClient.Delete(ctx, scan)
+			Expect(k8sClient.Delete(ctx, scan)).To(Succeed())
 		})
 	})
 })

@@ -14,7 +14,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	scanv1alpha1 "github.com/ahmali3/clusterscan-operator/api/v1alpha1"
 )
@@ -31,20 +30,18 @@ type ClusterScanReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *ClusterScanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
 	var clusterScan scanv1alpha1.ClusterScan
 	if err := r.Get(ctx, req.NamespacedName, &clusterScan); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if clusterScan.Spec.Schedule != "" {
-		return r.reconcileCronJob(ctx, &clusterScan, logger)
+		return r.reconcileCronJob(ctx, &clusterScan)
 	}
-	return r.reconcileJob(ctx, &clusterScan, logger)
+	return r.reconcileJob(ctx, &clusterScan)
 }
 
-func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *scanv1alpha1.ClusterScan, log interface{}) (ctrl.Result, error) {
+func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *scanv1alpha1.ClusterScan) (ctrl.Result, error) {
 	jobName := clusterScan.Name + "-job"
 	job := &batchv1.Job{}
 	err := r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: clusterScan.Namespace}, job)
@@ -102,7 +99,7 @@ func (r *ClusterScanReconciler) reconcileJob(ctx context.Context, clusterScan *s
 	return ctrl.Result{}, nil
 }
 
-func (r *ClusterScanReconciler) reconcileCronJob(ctx context.Context, clusterScan *scanv1alpha1.ClusterScan, log interface{}) (ctrl.Result, error) {
+func (r *ClusterScanReconciler) reconcileCronJob(ctx context.Context, clusterScan *scanv1alpha1.ClusterScan) (ctrl.Result, error) {
 	cronName := clusterScan.Name + "-cron"
 	cronJob := &batchv1.CronJob{}
 	err := r.Get(ctx, types.NamespacedName{Name: cronName, Namespace: clusterScan.Namespace}, cronJob)

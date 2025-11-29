@@ -79,7 +79,7 @@ var _ = Describe("ClusterScan Webhook", func() {
 			obj.Spec.Image = "nginx:1.19"
 
 			_, err := validator.ValidateCreate(ctx, obj)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should warn if using latest tag", func() {
@@ -87,8 +87,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 			obj.Spec.Image = "nginx:latest"
 
 			warnings, err := validator.ValidateCreate(ctx, obj)
-			Expect(err).To(BeNil())         // Should succeed...
-			Expect(warnings).To(HaveLen(1)) // ...but with a warning
+			Expect(err).ToNot(HaveOccurred()) // Should succeed...
+			Expect(warnings).To(HaveLen(1))   // ...but with a warning
 			Expect(warnings[0]).To(ContainSubstring("not recommended"))
 		})
 	})
