@@ -220,10 +220,4 @@ clusterscan-operator/
 
 ---
 
-## License
-
-Apache 2.0
-
----
-
-Built with [Kubebuilder](https://book.kubebuilder.io/) • Powered by [Trivy](https://trivy.dev/)
+Built with [Kubebuilder](https://book.kubebuilder.io/)
