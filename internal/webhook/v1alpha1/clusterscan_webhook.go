@@ -15,6 +15,13 @@ import (
 	scanv1alpha1 "github.com/ahmali3/clusterscan-operator/api/v1alpha1"
 )
 
+const (
+	DefaultScannerImage = "aquasec/trivy:latest"
+	TestTargetImage     = "nginx:1.19"
+	PhasePending        = "Pending"
+	PhaseRunning        = "Running"
+)
+
 var clusterscanlog = logf.Log.WithName("clusterscan-resource")
 
 func (w *ClusterScanWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -39,7 +46,7 @@ func (w *ClusterScanWebhook) Default(ctx context.Context, obj runtime.Object) er
 	clusterscanlog.Info("Defaulting fields for ClusterScan", "name", clusterscan.Name)
 
 	if clusterscan.Spec.Image == "" {
-		clusterscan.Spec.Image = "aquasec/trivy:latest"
+		clusterscan.Spec.Image = DefaultScannerImage
 		clusterscanlog.Info("Defaulted image to trivy", "image", clusterscan.Spec.Image)
 	}
 
@@ -173,19 +180,19 @@ func (w *ClusterScanWebhook) validateClusterScan(r *scanv1alpha1.ClusterScan) (a
 func (w *ClusterScanWebhook) validateClusterScanUpdate(old, new *scanv1alpha1.ClusterScan) (admission.Warnings, error) {
 	var warnings admission.Warnings
 
-	if old.Status.Phase != "" && old.Status.Phase != "Pending" {
+	if old.Status.Phase != "" && old.Status.Phase != PhasePending {
 		if old.Spec.Target != new.Spec.Target && old.Spec.Target != "" {
 			return warnings, fmt.Errorf("target is immutable after first scan completes (current: %s, attempted: %s). Delete and recreate to scan different target",
 				old.Spec.Target, new.Spec.Target)
 		}
 	}
 
-	if old.Status.Phase == "Pending" && old.Spec.Target != new.Spec.Target && old.Spec.Target != "" {
+	if old.Status.Phase == PhasePending && old.Spec.Target != new.Spec.Target && old.Spec.Target != "" {
 		warnings = append(warnings, fmt.Sprintf("Changing target from '%s' to '%s' before first scan - ensure this is intentional",
 			old.Spec.Target, new.Spec.Target))
 	}
 
-	if old.Status.Phase == "Running" {
+	if old.Status.Phase == PhaseRunning {
 		if old.Spec.Image != new.Spec.Image {
 			return warnings, fmt.Errorf("cannot change image while scan is running (wait for completion or delete the scan)")
 		}

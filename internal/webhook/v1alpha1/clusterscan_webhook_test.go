@@ -45,22 +45,22 @@ var _ = Describe("ClusterScan Webhook", func() {
 		It("Should apply defaults when target is specified with Trivy", func() {
 			By("simulating a Trivy scan with target")
 			obj.Spec.Command = []string{}
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 
 			By("calling the Default method to apply defaults")
 			err := defaulter.Default(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking that the default values are set")
-			Expect(obj.Spec.Command).To(Equal([]string{"trivy", "image", "nginx:1.19"}))
+			Expect(obj.Spec.Command).To(Equal([]string{"trivy", "image", TestTargetImage}))
 		})
 
 		It("Should NOT apply defaults when command is already specified", func() {
 			By("simulating a custom command")
 			obj.Spec.Command = []string{"custom", "command"}
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 
 			By("calling the Default method")
 			err := defaulter.Default(ctx, obj)
@@ -88,7 +88,7 @@ var _ = Describe("ClusterScan Webhook", func() {
 			By("simulating a Grype scan")
 			obj.Spec.Command = []string{}
 			obj.Spec.Image = "anchore/grype:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Target = TestTargetImage
 
 			By("calling the Default method")
 			err := defaulter.Default(ctx, obj)
@@ -103,7 +103,7 @@ var _ = Describe("ClusterScan Webhook", func() {
 		It("Should deny creation if Image is missing", func() {
 			By("simulating an invalid creation scenario")
 			obj.Spec.Image = ""
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Target = TestTargetImage
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -112,7 +112,7 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should deny creation if both Target and Command are missing", func() {
 			By("simulating invalid spec with neither target nor command")
-			obj.Spec.Image = "aquasec/trivy:latest"
+			obj.Spec.Image = DefaultScannerImage
 			obj.Spec.Target = ""
 			obj.Spec.Command = []string{}
 
@@ -123,8 +123,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should admit creation if Target is specified", func() {
 			By("simulating a valid creation with target")
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -141,8 +141,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn if using latest tag for image", func() {
 			By("simulating a risky scanner image")
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 
 			warnings, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -161,8 +161,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should deny creation with invalid cron schedule", func() {
 			By("simulating invalid cron syntax")
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 			obj.Spec.Schedule = "invalid cron"
 
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -172,8 +172,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn about very frequent schedules", func() {
 			By("simulating every-minute schedule")
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 			obj.Spec.Schedule = "* * * * *"
 
 			warnings, err := validator.ValidateCreate(ctx, obj)
@@ -183,7 +183,7 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should deny creation with uppercase in target", func() {
 			By("simulating uppercase image name")
-			obj.Spec.Image = "aquasec/trivy:latest"
+			obj.Spec.Image = DefaultScannerImage
 			obj.Spec.Target = "NGINX:1.19"
 
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -203,8 +203,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn when both target and command are specified", func() {
 			By("simulating both target and command")
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 			obj.Spec.Command = []string{"custom", "command"}
 
 			warnings, err := validator.ValidateCreate(ctx, obj)
@@ -215,7 +215,7 @@ var _ = Describe("ClusterScan Webhook", func() {
 		It("Should warn about unknown scanner", func() {
 			By("simulating non-standard scanner")
 			obj.Spec.Image = "mycompany/custom-scanner:v1"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Target = TestTargetImage
 
 			warnings, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -224,8 +224,8 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn about suspend without schedule", func() {
 			By("simulating suspend on one-time scan")
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 			obj.Spec.Suspend = true
 
 			warnings, err := validator.ValidateCreate(ctx, obj)
@@ -237,11 +237,11 @@ var _ = Describe("ClusterScan Webhook", func() {
 	Context("When updating ClusterScan under Validating Webhook", func() {
 		It("Should deny target change after scan completes", func() {
 			By("simulating completed scan")
-			oldObj.Spec.Image = "aquasec/trivy:latest"
-			oldObj.Spec.Target = "nginx:1.19"
+			oldObj.Spec.Image = DefaultScannerImage
+			oldObj.Spec.Target = TestTargetImage
 			oldObj.Status.Phase = "Completed"
 
-			obj.Spec.Image = "aquasec/trivy:latest"
+			obj.Spec.Image = DefaultScannerImage
 			obj.Spec.Target = "nginx:1.20"
 
 			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
@@ -251,11 +251,11 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should allow target change while still pending", func() {
 			By("simulating pending scan")
-			oldObj.Spec.Image = "aquasec/trivy:latest"
-			oldObj.Spec.Target = "nginx:1.19"
-			oldObj.Status.Phase = "Pending"
+			oldObj.Spec.Image = DefaultScannerImage
+			oldObj.Spec.Target = TestTargetImage
+			oldObj.Status.Phase = PhasePending
 
-			obj.Spec.Image = "aquasec/trivy:latest"
+			obj.Spec.Image = DefaultScannerImage
 			obj.Spec.Target = "nginx:1.20"
 
 			warnings, err := validator.ValidateUpdate(ctx, oldObj, obj)
@@ -266,11 +266,11 @@ var _ = Describe("ClusterScan Webhook", func() {
 		It("Should deny image change while scan is running", func() {
 			By("simulating running scan")
 			oldObj.Spec.Image = "aquasec/trivy:0.48.0"
-			oldObj.Spec.Target = "nginx:1.19"
-			oldObj.Status.Phase = "Running"
+			oldObj.Spec.Target = TestTargetImage
+			oldObj.Status.Phase = PhaseRunning
 
 			obj.Spec.Image = "aquasec/trivy:0.49.0"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Target = TestTargetImage
 
 			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
 			Expect(err).To(HaveOccurred())
@@ -279,12 +279,12 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn about scanner type changes", func() {
 			By("simulating scanner change")
-			oldObj.Spec.Image = "aquasec/trivy:latest"
-			oldObj.Spec.Target = "nginx:1.19"
+			oldObj.Spec.Image = DefaultScannerImage
+			oldObj.Spec.Target = TestTargetImage
 			oldObj.Status.Phase = "Completed"
 
 			obj.Spec.Image = "anchore/grype:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Target = TestTargetImage
 
 			warnings, err := validator.ValidateUpdate(ctx, oldObj, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -293,12 +293,12 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn about adding schedule", func() {
 			By("simulating adding schedule to one-time scan")
-			oldObj.Spec.Image = "aquasec/trivy:latest"
-			oldObj.Spec.Target = "nginx:1.19"
+			oldObj.Spec.Image = DefaultScannerImage
+			oldObj.Spec.Target = TestTargetImage
 			oldObj.Spec.Schedule = ""
 
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 			obj.Spec.Schedule = "0 2 * * *"
 
 			warnings, err := validator.ValidateUpdate(ctx, oldObj, obj)
@@ -308,12 +308,12 @@ var _ = Describe("ClusterScan Webhook", func() {
 
 		It("Should warn about removing schedule", func() {
 			By("simulating removing schedule")
-			oldObj.Spec.Image = "aquasec/trivy:latest"
-			oldObj.Spec.Target = "nginx:1.19"
+			oldObj.Spec.Image = DefaultScannerImage
+			oldObj.Spec.Target = TestTargetImage
 			oldObj.Spec.Schedule = "0 2 * * *"
 
-			obj.Spec.Image = "aquasec/trivy:latest"
-			obj.Spec.Target = "nginx:1.19"
+			obj.Spec.Image = DefaultScannerImage
+			obj.Spec.Target = TestTargetImage
 			obj.Spec.Schedule = ""
 
 			warnings, err := validator.ValidateUpdate(ctx, oldObj, obj)
