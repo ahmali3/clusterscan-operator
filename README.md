@@ -40,80 +40,34 @@ make setup
 make demo
 ```
 
-### Manual Setup
+### What it does internally:
 
 ```bash
-# Create cluster
+# 1. Creates Kind cluster
 kind create cluster --name clusterscan
 
-# Install cert-manager
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml
-kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
-kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
+# 2. Installs cert-manager (needed for webhook TLS certificates)
+kubectl apply -f cert-manager.yaml
+kubectl wait --for=condition=available deployment/cert-manager
 
-# Install CRDs
+# 3. Generates CRDs and RBAC manifests from Go code
+make manifests
+
+# 4. Installs CRDs (ClusterScan definition) into cluster
 make install
 
-# Build and load image
+# 5. Builds Docker image
 make docker-build IMG=controller:latest
+
+# 6. Loads image into Kind
 kind load docker-image controller:latest --name clusterscan
 
-# Deploy operator
+# 7. Deploys operator to cluster
 make deploy IMG=controller:latest
 
-# Wait for operator
+# 8. Waits for operator to be ready
 kubectl wait --for=condition=available --timeout=120s \
   deployment/clusterscan-operator-controller-manager -n clusterscan-operator-system
-```
-
----
-
-## 📖 Usage
-
-### Simple Scan
-
-```yaml
-apiVersion: scan.ahmali3.github.io/v1alpha1
-kind: ClusterScan
-metadata:
-  name: nginx-scan
-spec:
-  target: nginx:latest
-```
-
-```bash
-kubectl apply -f nginx-scan.yaml
-kubectl get clusterscans -w
-```
-
-### Scheduled Scan
-
-```yaml
-apiVersion: scan.ahmali3.github.io/v1alpha1
-kind: ClusterScan
-metadata:
-  name: nightly-scan
-spec:
-  target: python:3.9
-  schedule: "0 2 * * *"
-```
-
-### Custom Scanner
-
-```yaml
-apiVersion: scan.ahmali3.github.io/v1alpha1
-kind: ClusterScan
-metadata:
-  name: kube-bench
-spec:
-  image: aquasec/kube-bench:latest
-  command: ["kube-bench", "run", "--targets", "master,node"]
-```
-
-### Suspend Schedule
-
-```bash
-kubectl patch clusterscan nightly-scan --type=merge -p '{"spec":{"suspend":true}}'
 ```
 
 ---
@@ -177,22 +131,6 @@ kind delete cluster --name clusterscan
 
 ---
 
-## 🛠️ Development
-
-```bash
-# Run tests
-make test
-
-# Run controller locally
-make install
-make run
-
-# View logs
-kubectl logs -n clusterscan-operator-system deployment/clusterscan-operator-controller-manager
-```
-
----
-
 ## 📋 API Reference
 
 ### ClusterScan Spec
@@ -226,6 +164,7 @@ kubectl logs -n clusterscan-operator-system deployment/clusterscan-operator-cont
 | `make test` | Run tests |
 | `make show-scans` | List all scans |
 | `make export-results SCAN=<name>` | Export results |
+| `make export-all-results` | Export all results |
 
 ---
 
