@@ -19,7 +19,6 @@ config/crd/bases
 
 # editor and IDE paraphernalia
 .idea
-.vscode
 *.swp
 *.swo
 *~

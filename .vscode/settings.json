@@ -1,0 +1,14 @@
+{
+    "go.toolsMode": "mod",
+    "go.useLanguageServer": true,
+    "go.buildFlags": ["-mod=mod"],
+    "go.testFlags": ["-mod=mod"],
+    "go.toolsEnvVars": {
+        "GOFLAGS": "-mod=mod"
+    },
+    "gopls": {
+        "env": {
+            "GOFLAGS": "-mod=mod"
+        }
+    }
+}
