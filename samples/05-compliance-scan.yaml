@@ -1,8 +1,11 @@
 apiVersion: scan.ahmali3.github.io/v1alpha1
 kind: ClusterScan
 metadata:
-  name: nightly-cis-benchmark
+  name: compliance-scan
 spec:
-  schedule: "0 2 * * *"
   image: aquasec/kube-bench:latest
-  command: ["kube-bench", "run", "--targets", "node"]
+  command:
+    - kube-bench
+    - run
+    - --targets
+    - master,node
